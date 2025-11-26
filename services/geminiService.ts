@@ -41,7 +41,10 @@ export const generateUML = async (data: UseCaseData): Promise<GeneratedDiagrams>
     - Exception Flow: ${data.exceptionFlow}
 
     **Requirements for Activity Diagram:**
-    - Use 'flowchart TD'.
+    - **ABSOLUTE CRITICAL RULE**: The FIRST line MUST be exactly 'flowchart TD' (NOT 'graph TD', NOT 'graph', NOT 'flowchart').
+      - INCORRECT: graph TD
+      - INCORRECT: graph LR
+      - CORRECT: flowchart TD
     - **CRITICAL RULE**: Do NOT use reserved keywords like "end", "start", "subgraph", "class" as Node IDs. 
       - INCORRECT: end("Kết thúc")
       - CORRECT: EndNode("Kết thúc")
