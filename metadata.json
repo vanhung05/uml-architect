@@ -1,0 +1,5 @@
+{
+  "name": "Hùng UML Architect",
+  "description": "Chuyển đổi đặc tả Use Case chi tiết thành sơ đồ UML (Activity & Sequence) tự động sử dụng Gemini AI.",
+  "requestFramePermissions": []
+}
