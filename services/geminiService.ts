@@ -19,6 +19,8 @@ const parseJSON = (text: string) => {
 };
 
 const fixSequenceDiagram = (code: string): string => {
+    if (!code || !code.trim()) return code;
+    
     const lines = code.split('\n');
     const fixedLines: string[] = [];
     const seenParticipants = new Set<string>();
@@ -26,11 +28,15 @@ const fixSequenceDiagram = (code: string): string => {
     // First pass: collect all participant definitions and keep only first occurrence
     const participantLines: string[] = [];
     const nonParticipantLines: string[] = [];
+    let hasSequenceDiagram = false;
     
     for (const line of lines) {
         const trimmed = line.trim();
         
-        if (trimmed.startsWith('participant ')) {
+        if (trimmed === 'sequenceDiagram') {
+            hasSequenceDiagram = true;
+            nonParticipantLines.push(line);
+        } else if (trimmed.startsWith('participant ')) {
             const match = trimmed.match(/participant\s+(\w+)\s+as\s+(\w+)/);
             if (match) {
                 const participantId = match[1];
@@ -59,14 +65,23 @@ const fixSequenceDiagram = (code: string): string => {
         }
     }
     
+    // If no sequenceDiagram found, return original
+    if (!hasSequenceDiagram) {
+        return code;
+    }
+    
     // Combine: sequenceDiagram line, then all participants, then rest
+    let participantsAdded = false;
     for (const line of nonParticipantLines) {
         const trimmed = line.trim();
         
         if (trimmed === 'sequenceDiagram') {
             fixedLines.push(line);
             // Add all participants right after sequenceDiagram
-            fixedLines.push(...participantLines);
+            if (participantLines.length > 0) {
+                fixedLines.push(...participantLines);
+                participantsAdded = true;
+            }
         } else {
             // Fix alt/loop headers - remove brackets
             let fixedLine = line;
@@ -324,7 +339,12 @@ export const generateUML = async (data: UseCaseData): Promise<GeneratedDiagrams>
     
     // Post-process sequence diagram to fix common issues
     if (result.sequenceDiagram) {
-      result.sequenceDiagram = fixSequenceDiagram(result.sequenceDiagram);
+      try {
+        result.sequenceDiagram = fixSequenceDiagram(result.sequenceDiagram);
+      } catch (fixError) {
+        console.error("Error fixing sequence diagram:", fixError);
+        // If fix fails, use original
+      }
     }
     
     return result;
