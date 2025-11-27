@@ -18,6 +18,24 @@ const parseJSON = (text: string) => {
     }
 };
 
+const fixActivityDiagram = (code: string): string => {
+    if (!code || !code.trim()) return code;
+    
+    // Fix: Remove quotes inside node text that are not properly escaped
+    // Replace patterns like ["text "quoted" text"] with ["text quoted text"]
+    let fixed = code.replace(/\["([^"]*)"([^"]*)"([^"]*)"\]/g, '["$1$2$3"]');
+    
+    // Fix: Ensure all node text is properly quoted
+    // This regex finds node definitions and ensures quotes are balanced
+    fixed = fixed.replace(/(\w+)\[([^\]]+)\]/g, (match, nodeId, text) => {
+        // Remove any existing quotes and re-add them properly
+        const cleanText = text.replace(/["']/g, '');
+        return `${nodeId}["${cleanText}"]`;
+    });
+    
+    return fixed;
+};
+
 const fixSequenceDiagram = (code: string): string => {
     if (!code || !code.trim()) return code;
     
@@ -138,9 +156,13 @@ export const generateUML = async (data: UseCaseData): Promise<GeneratedDiagrams>
     - Analyze the flow for keywords like "if", "check", "verify" to create Decision diamonds.
     - Integrate Alternative and Exception flows as branches from appropriate steps or decisions.
     - **SYNTAX RULE**: Enclose ALL node text in double quotes to handle Vietnamese characters.
-      - If the text contains double quotes, replace them with single quotes.
-      - Correct: A["Người dùng bấm 'Đăng nhập'"]
-      - Incorrect: A["Người dùng bấm "Đăng nhập""]
+      - Do NOT use any quotes inside the node text. Remove all single quotes and double quotes from the text content.
+      - INCORRECT: A["Người dùng bấm 'Đăng nhập'"]
+      - INCORRECT: A["Text "quoted" text"]
+      - INCORRECT: Precond1["Khách hàng đã đăng ký và đăng nhập hệ thống"]
+      - CORRECT: A["Người dùng bấm Đăng nhập"]
+      - CORRECT: A["Text quoted text"]
+      - CORRECT: Precond1["Khách hàng đã đăng ký và đăng nhập hệ thống"]
 
     **Requirements for Sequence Diagram:**
     - Use 'sequenceDiagram'.
@@ -337,7 +359,16 @@ export const generateUML = async (data: UseCaseData): Promise<GeneratedDiagrams>
 
     const result = parseJSON(text);
     
-    // Post-process sequence diagram to fix common issues
+    // Post-process diagrams to fix common issues
+    if (result.activityDiagram) {
+      try {
+        result.activityDiagram = fixActivityDiagram(result.activityDiagram);
+      } catch (fixError) {
+        console.error("Error fixing activity diagram:", fixError);
+        // If fix fails, use original
+      }
+    }
+    
     if (result.sequenceDiagram) {
       try {
         result.sequenceDiagram = fixSequenceDiagram(result.sequenceDiagram);
