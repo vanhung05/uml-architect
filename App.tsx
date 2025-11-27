@@ -53,7 +53,7 @@ const App: React.FC = () => {
             <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-600 to-indigo-600">
             Hùng UML Architect
             </h1>
-            <p className="text-xs text-slate-500">Chuyển đổi Use Case thành sơ đồ tự động</p>
+            <p className="text-xs text-slate-500">Chuyển đổi đặc tả Use Case thành sơ đồ tự động</p>
         </div>
       </header>
 
@@ -92,11 +92,38 @@ const App: React.FC = () => {
             )}
 
             {isLoading && !diagrams && (
-                 <div className="h-full flex flex-col items-center justify-center text-purple-500 mt-[-50px]">
-                    <div className="animate-bounce mb-2">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path></svg>
+                 <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-50">
+                    <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full mx-4">
+                        {/* Spinner */}
+                        <div className="flex justify-center mb-6">
+                            <div className="relative">
+                                <div className="w-20 h-20 border-4 border-purple-200 rounded-full"></div>
+                                <div className="w-20 h-20 border-4 border-purple-600 rounded-full border-t-transparent animate-spin absolute top-0 left-0"></div>
+                                <div className="absolute inset-0 flex items-center justify-center">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-purple-600">
+                                        <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+                                    </svg>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        {/* Text */}
+                        <h3 className="text-lg font-bold text-center text-slate-800 mb-2">
+                            Đang xử lý...
+                        </h3>
+                        <p className="text-sm text-center text-slate-500 mb-6">
+                            AI đang phân tích luồng nghiệp vụ và tạo sơ đồ
+                        </p>
+                        
+                        {/* Progress Bar */}
+                        <div className="relative w-full h-2 bg-slate-200 rounded-full overflow-hidden">
+                            <div className="absolute inset-0 bg-gradient-to-r from-purple-600 to-indigo-600 rounded-full animate-progress"></div>
+                        </div>
+                        
+                        <p className="text-xs text-center text-slate-400 mt-4">
+                            Quá trình này có thể mất vài giây...
+                        </p>
                     </div>
-                    <p className="text-sm font-medium animate-pulse">AI đang phân tích luồng nghiệp vụ...</p>
                  </div>
             )}
 

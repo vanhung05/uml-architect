@@ -18,6 +18,74 @@ const parseJSON = (text: string) => {
     }
 };
 
+const fixSequenceDiagram = (code: string): string => {
+    const lines = code.split('\n');
+    const fixedLines: string[] = [];
+    const seenParticipants = new Set<string>();
+    
+    // First pass: collect all participant definitions and keep only first occurrence
+    const participantLines: string[] = [];
+    const nonParticipantLines: string[] = [];
+    
+    for (const line of lines) {
+        const trimmed = line.trim();
+        
+        if (trimmed.startsWith('participant ')) {
+            const match = trimmed.match(/participant\s+(\w+)\s+as\s+(\w+)/);
+            if (match) {
+                const participantId = match[1];
+                // Only keep first occurrence
+                if (!seenParticipants.has(participantId)) {
+                    seenParticipants.add(participantId);
+                    participantLines.push(line);
+                } else {
+                    console.log(`Removing duplicate participant: ${participantId}`);
+                }
+            } else {
+                // Participant without alias
+                const simpleMatch = trimmed.match(/participant\s+(\w+)/);
+                if (simpleMatch) {
+                    const participantId = simpleMatch[1];
+                    if (!seenParticipants.has(participantId)) {
+                        seenParticipants.add(participantId);
+                        participantLines.push(line);
+                    } else {
+                        console.log(`Removing duplicate participant: ${participantId}`);
+                    }
+                }
+            }
+        } else {
+            nonParticipantLines.push(line);
+        }
+    }
+    
+    // Combine: sequenceDiagram line, then all participants, then rest
+    for (const line of nonParticipantLines) {
+        const trimmed = line.trim();
+        
+        if (trimmed === 'sequenceDiagram') {
+            fixedLines.push(line);
+            // Add all participants right after sequenceDiagram
+            fixedLines.push(...participantLines);
+        } else {
+            // Fix alt/loop headers - remove brackets
+            let fixedLine = line;
+            if (trimmed.startsWith('alt ') || trimmed.startsWith('loop ')) {
+                fixedLine = fixedLine.replace(/\[([^\]]+)\]/g, '$1');
+            }
+            
+            // Remove brackets from note text
+            if (trimmed.startsWith('Note ')) {
+                fixedLine = fixedLine.replace(/\[([^\]]+)\]/g, '$1');
+            }
+            
+            fixedLines.push(fixedLine);
+        }
+    }
+    
+    return fixedLines.join('\n');
+};
+
 export const generateUML = async (data: UseCaseData): Promise<GeneratedDiagrams> => {
   const apiKey = process.env.API_KEY;
   if (!apiKey) {
@@ -61,20 +129,43 @@ export const generateUML = async (data: UseCaseData): Promise<GeneratedDiagrams>
 
     **Requirements for Sequence Diagram:**
     - Use 'sequenceDiagram'.
-    - **CRITICAL RULE**: Define participants explicitly at the top using 'participant'.
+    - **ABSOLUTE CRITICAL RULE**: Define ALL participants ONCE at the TOP of the diagram. NEVER define a participant twice.
+      - INCORRECT:
+        participant Actor as NguoiDung
+        participant UI as GiaoDien
+        ... some messages ...
+        participant Actor as NguoiDung (DUPLICATE - FORBIDDEN!)
+      - CORRECT:
+        participant Actor as NguoiDung
+        participant UI as GiaoDien
+        participant System as HeThong
+        participant DB as CSDL
+        ... all messages use these participants ...
+    - **CRITICAL RULE**: ALWAYS include a UI/Interface participant to show user interactions with the interface.
+      - REQUIRED participants order: Actor (user) -> UI (interface) -> System (backend) -> DB/External Services
+      - Typical participants (define ALL at the top):
+        participant Actor as NguoiDung
+        participant UI as GiaoDien
+        participant System as HeThong
+        participant DB as CSDL
+    - **CRITICAL RULE**: User interactions should go through UI first, then UI communicates with System.
+      - CORRECT flow: Actor->>UI: Click button -> UI->>System: Send request -> System->>DB: Query
+      - INCORRECT flow: Actor->>System: Click button (skipping UI layer)
     - **CRITICAL RULE**: Use simple Alphanumeric IDs (no spaces) for participants. For aliases, use SINGLE WORD only (no spaces).
       - INCORRECT: participant Khách Hàng
       - INCORRECT: participant Actor as Khách Hàng
       - INCORRECT: participant System as Hệ thống
-      - CORRECT: participant Actor as KhachHang
+      - CORRECT: participant Actor as NguoiDung
+      - CORRECT: participant UI as GiaoDien
       - CORRECT: participant System as HeThong
-      - CORRECT: participant DB as Database
+      - CORRECT: participant DB as CSDL
     - **CRITICAL RULE**: Participant aliases MUST be a single word with NO SPACES. Use camelCase or PascalCase for Vietnamese words.
       - INCORRECT: Khách Hàng (has space)
       - INCORRECT: Hệ thống (has space)
-      - CORRECT: KhachHang
+      - CORRECT: NguoiDung
+      - CORRECT: GiaoDien
       - CORRECT: HeThong
-      - CORRECT: CongThanhToan
+      - CORRECT: CSDL
     - **CRITICAL RULE**: Do NOT use quotes around participant aliases.
     - **CRITICAL RULE**: Do NOT enclose message texts in quotes. Use plain text only.
       - INCORRECT: Actor->>System: "Bấm nút đặt sân"
@@ -103,13 +194,17 @@ export const generateUML = async (data: UseCaseData): Promise<GeneratedDiagrams>
     - Use 'alt' or 'loop' blocks for Alternative and Exception flows. AVOID using 'opt' blocks.
     - **CRITICAL RULE**: The keyword 'end' is ONLY used to close 'alt' or 'loop' blocks. NEVER use 'end' as a standalone line or message.
     - **CRITICAL RULE**: Every 'alt' or 'loop' block MUST have exactly ONE 'end' to close it.
-    - **CRITICAL RULE**: For 'alt' or 'loop' headers, use ONLY Vietnamese text without any codes, numbers, or special characters.
+    - **CRITICAL RULE**: For 'alt' or 'loop' headers, use ONLY Vietnamese text without any codes, numbers, or special characters. NO brackets or special symbols.
       - INCORRECT: alt E1 Lỗi thanh toán
       - INCORRECT: alt A1 Khách hàng chọn bộ lọc
       - INCORRECT: alt E1: Lỗi thanh toán
+      - INCORRECT: alt [Dữ liệu hợp lệ]
+      - INCORRECT: alt [Email sai định dạng]
       - CORRECT: alt Lỗi thanh toán
       - CORRECT: alt Khách hàng chọn bộ lọc
       - CORRECT: alt Trường hợp lỗi
+      - CORRECT: alt Dữ liệu hợp lệ
+      - CORRECT: alt Email sai định dạng
     - **ABSOLUTE CRITICAL RULE**: The word 'else' MUST ALWAYS appear ALONE on its own line with NOTHING after it. NO TEXT. NO LABELS. NO SPACES after 'else'.
       - INCORRECT: else A2 Thanh toán bằng phương thức khác
       - INCORRECT: else E2 Thanh toán thành công
@@ -169,6 +264,27 @@ export const generateUML = async (data: UseCaseData): Promise<GeneratedDiagrams>
         else
             Actor->>System: Message4
         end
+    - **CRITICAL RULE**: Place 'alt' blocks IMMEDIATELY after the action that triggers the decision, NOT at the end of the diagram.
+      - INCORRECT (alt at the end):
+        Actor->>System: Login
+        System->>DB: Check credentials
+        DB-->>System: Return result
+        System->>Actor: Show result
+        alt Login failed
+            System->>Actor: Show error
+        end
+      - CORRECT (alt right after decision point):
+        Actor->>System: Login
+        System->>DB: Check credentials
+        DB-->>System: Return result
+        alt Login successful
+            System->>Actor: Redirect to dashboard
+        else
+            System->>Actor: Show error message
+        end
+    - **CRITICAL RULE**: Integrate Alternative Flows and Exception Flows at their LOGICAL POSITION in the sequence, not at the end.
+      - When you see "Alternative Flow" or "Exception Flow" in the use case, identify WHERE in the Basic Flow it branches off
+      - Place the 'alt' block at that exact position in the sequence
     - **CRITICAL RULE**: If you have multiple decision points, create SEPARATE top-level 'alt' blocks in SEQUENCE. Do NOT nest them.
     - **CRITICAL RULE**: Inside 'alt' or 'else' branches, you can ONLY have: messages (->>) and notes (Note). You CANNOT have another 'alt' or 'loop'.
     - **CRITICAL RULE**: Do NOT use the 'break' or 'opt' keywords. They cause syntax errors. Use only 'alt' and 'loop'.
@@ -204,7 +320,14 @@ export const generateUML = async (data: UseCaseData): Promise<GeneratedDiagrams>
     const text = response.text;
     if (!text) throw new Error("No response from AI");
 
-    return parseJSON(text);
+    const result = parseJSON(text);
+    
+    // Post-process sequence diagram to fix common issues
+    if (result.sequenceDiagram) {
+      result.sequenceDiagram = fixSequenceDiagram(result.sequenceDiagram);
+    }
+    
+    return result;
 
   } catch (error) {
     console.error("Gemini API Error:", error);
